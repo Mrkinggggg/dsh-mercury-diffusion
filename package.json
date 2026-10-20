@@ -1,0 +1,90 @@
+{
+  "name": "dsh-mercury-diffusion",
+  "description": "Inception Mercury adapter for DeepSeek Harness that renders the diffusion (denoising) stream live in the Web UI",
+  "version": "0.1.0",
+  "author": "TonyWu",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TonyWu2333/dsh-mercury-diffusion.git"
+  },
+  "homepage": "https://github.com/TonyWu2333/dsh-mercury-diffusion#readme",
+  "bugs": {
+    "url": "https://github.com/TonyWu2333/dsh-mercury-diffusion/issues"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "mercury",
+    "inception",
+    "diffusion"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": "^22.19 || >=24",
+    "dsh": ">=0.2.1-rc.2 <0.3.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "prepare": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"tests/*.test.ts\""
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-brand": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-timeout": "0.2.1-rc.2",
+    "@deepseek-ai/schemastery": "~3.18.5",
+    "eventsource-parser": "^3.1.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5",
+    "@deepseek-ai/dsh-llm": ">=0.2.1-rc.2 <0.3.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5",
+    "@deepseek-ai/dsh-client-connection": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-locale": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-store": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-chat": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-plugin-manager": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-primitives": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-session": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-llm": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-settings": "^0.2.1-rc.2",
+    "@types/node": "^24.0.0",
+    "@types/react": "^18.2.0",
+    "esbuild": "^0.25.0",
+    "react": "^18.2.0",
+    "typescript": "^5.9.0"
+  }
+}
