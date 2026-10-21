@@ -204,3 +204,7 @@ npm run build     # lib/index.js（Host，ESM）+ lib/client.js（dsh client-mod
 ## 许可证
 
 [MIT](LICENSE)
+
+---
+
+感谢 [LINUX DO](https://linux.do) 社区。

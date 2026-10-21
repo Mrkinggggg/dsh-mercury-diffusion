@@ -204,3 +204,7 @@ The build enforces bundle purity: the client bundle may only `require` modules f
 ## License
 
 [MIT](LICENSE)
+
+---
+
+Thanks to the [LINUX DO](https://linux.do) community.
