@@ -15,7 +15,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { attributionHeaders, LlmError } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { DiffusionCapability } from './capability.ts'
-import { DEFAULT_KEY_ENV, resolveCredential } from './credentials.ts'
+import { resolveCredential } from './credentials.ts'
 import type { DiffusionState } from './diffusion-state.ts'
 import { providerError } from './errors.ts'
 import type { DiffusionHub } from './frames.ts'
@@ -24,6 +24,14 @@ import { serialize } from './serialize.ts'
 import { parseSse } from './sse.ts'
 import { translate } from './translate.ts'
 import type { WireRequest } from './wire-types.ts'
+
+/**
+ * How long a bridged attempt may sit with no provider event before the request
+ * is handed back to its owning adapter. Waiting the full idle timeout here would
+ * leave a person staring at nothing for minutes; once the first event arrives the
+ * slower idle deadline takes over.
+ */
+const FIRST_EVENT_TIMEOUT_MS = 20_000
 
 /**
  * Whether a request carries something the bridge cannot serialize faithfully.
@@ -69,12 +77,16 @@ async function* bridge(
   const consumer = new AbortController()
   const signal = options.signal === undefined ? consumer.signal : AbortSignal.any([consumer.signal, options.signal])
   // A gateway that accepts the connection and then says nothing would otherwise
-  // hold the turn open forever; every provider event re-arms this deadline.
+  // hold the turn open forever; every provider event re-arms this deadline, and
+  // the first one is held to a much shorter budget than the idle timeout.
   let idle: ReturnType<typeof setTimeout> | undefined
+  let live = false
   const rearm = (): void => {
     if (idle !== undefined) clearTimeout(idle)
-    idle = setTimeout(() => { consumer.abort(new Error('provider idle timeout')) }, idleTimeoutMs)
+    const wait = live ? idleTimeoutMs : Math.min(idleTimeoutMs, FIRST_EVENT_TIMEOUT_MS)
+    idle = setTimeout(() => { consumer.abort(new Error('provider idle timeout')) }, wait)
   }
+  const onActivity = (): void => { live = true; rearm() }
   rearm()
   let outcome: DiffusionOutcome = 'failed'
   try {
@@ -100,7 +112,7 @@ async function* bridge(
     }
     if (response.body === null) throw new LlmError('Mercury gateway returned no response body', 'EMPTY_RESPONSE')
     rearm()
-    yield* translate(parseSse(response.body, rearm), attempt)
+    yield* translate(parseSse(response.body, onActivity), attempt)
     outcome = 'completed'
   } catch (error) {
     if (options.signal?.aborted === true) throw new LlmError('Mercury bridge request aborted', 'ABORTED', { cause: error })
@@ -116,17 +128,41 @@ async function* bridge(
 }
 
 /**
- * Run the bridge, and hand the request back to its owning adapter if the
- * gateway refuses it before any frame arrives — a route that does not forward
- * `diffusing` must not break conversations it cannot diffuse.
- * @param run - the bridge stream factory.
+ * Run the bridge, and hand the request back to its owning adapter whenever the
+ * bridge turns out not to apply, or refuses the request before any frame
+ * arrives — a route that cannot be diffused must not break conversations.
+ * @param prepare - resolves the bridged stream, or undefined when not applicable.
  * @param next - the owning adapter's own stream.
- * @returns the bridged stream, or the owning adapter's stream on early failure.
+ * @param signal - the caller's abort signal.
+ * @returns the bridged stream, or the owning adapter's stream instead.
  */
-function guarded(run: () => AsyncGenerator<StreamChunk>, next: () => AsyncIterable<StreamChunk>): AsyncIterable<StreamChunk> {
+function guarded(
+  prepare: () => Promise<AsyncGenerator<StreamChunk> | undefined>,
+  next: () => AsyncIterable<StreamChunk>,
+  signal: AbortSignal | undefined,
+): AsyncIterable<StreamChunk> {
+  // Read through a call so the check keeps working after the first one narrows
+  // the signal's `aborted` flag to false.
+  const aborted = (): boolean => signal?.aborted === true
   return {
     async *[Symbol.asyncIterator](): AsyncGenerator<StreamChunk> {
-      const iterator = run()[Symbol.asyncIterator]()
+      if (aborted()) throw new LlmError('Mercury bridge request aborted', 'ABORTED')
+      let stream: AsyncGenerator<StreamChunk> | undefined
+      try {
+        stream = await prepare()
+      } catch (error) {
+        if (aborted()) throw error
+        // Deciding whether to bridge must never cost the turn either.
+        yield* next()
+        return
+      }
+      // Not applicable: no credential, or the upstream does not honor the field.
+      // The owning adapter answers, exactly as if this plugin were absent.
+      if (stream === undefined) {
+        yield* next()
+        return
+      }
+      const iterator = stream[Symbol.asyncIterator]()
       let started = false
       try {
         while (true) {
@@ -136,9 +172,9 @@ function guarded(run: () => AsyncGenerator<StreamChunk>, next: () => AsyncIterab
           yield step.value
         }
       } catch (error) {
-        if (started) throw error
-        // A route that refuses the field must not break the conversation: the
-        // owning adapter answers instead, exactly as if the bridge were absent.
+        // An abort is the caller's decision, not a route refusal: rethrow rather
+        // than quietly starting a second request on an aborted signal.
+        if (started || aborted()) throw error
         yield* next()
       } finally {
         void iterator.return?.(undefined).catch((_abandonedDrain: unknown) => {})
@@ -181,40 +217,19 @@ export function applyBridge(
     if (!diffusion.isEnabled({ provider: options.provider, model: options.model }, false)) return next()
     if (!hub.watching(options.sessionId)) return next()
     if (hasAttachment(options)) return next()
-    return guarded(() => bridged(ctx, options, route, hub, capability, frameIntervalMs, idleTimeoutMs), next)
+    return guarded(async () => {
+      // Decide here, not inside the stream: a generator that simply returns
+      // would end the turn with an empty answer instead of falling back.
+      const apiKey = await resolveCredential(ctx, route.apiKeyEnv)
+      if (apiKey === undefined) return undefined
+      const verdict = await capability.verdict({
+        provider: route.provider,
+        model: options.model,
+        baseURL: route.baseURL,
+        apiKey,
+      })
+      if (verdict !== 'yes') return undefined
+      return bridge(options, route, apiKey, hub, frameIntervalMs, idleTimeoutMs)
+    }, next, options.signal)
   }, { global: true, prepend: true })
-}
-
-/**
- * Probe the route first, then bridge only when the upstream accepts the field.
- * A route that refuses it streams through its own adapter, unchanged.
- * @param ctx - plugin context (credential resolution).
- * @param options - the assembled request.
- * @param route - the matching candidate route.
- * @param hub - frame fan-out shared with the adapter.
- * @param capability - probe results, cached per route and model.
- * @param frameIntervalMs - minimum spacing between published frames.
- * @param idleTimeoutMs - abort a bridged stream that goes silent for this long.
- * @returns the bridged stream, or the owning adapter's stream when unsupported.
- */
-async function* bridged(
-  ctx: Context,
-  options: GenerateOptions,
-  route: BridgeRoute,
-  hub: DiffusionHub,
-  capability: DiffusionCapability,
-  frameIntervalMs: number,
-  idleTimeoutMs: number,
-): AsyncGenerator<StreamChunk> {
-  // One resolution serves both the probe and the re-issued request.
-  const apiKey = await resolveCredential(ctx, route.apiKeyEnv.length > 0 ? route.apiKeyEnv : DEFAULT_KEY_ENV)
-  if (apiKey === undefined) return
-  const verdict = await capability.verdict({
-    provider: route.provider,
-    model: options.model,
-    baseURL: route.baseURL,
-    apiKey,
-  })
-  if (verdict !== 'yes') return
-  yield* bridge(options, route, apiKey, hub, frameIntervalMs, idleTimeoutMs)
 }
