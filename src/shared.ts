@@ -1,5 +1,7 @@
 /** Wire facts shared by the Host frames route and the browser frame source. */
 
+import type { DiffusionVerdict } from './capability.ts'
+
 /** Exact Connection route serving live diffusion frames as server-sent events. */
 export const FRAMES_ROUTE_PATH = '/api/mercury-diffusion/frames'
 
@@ -9,8 +11,37 @@ export const FRAMES_ROUTE = FRAMES_ROUTE_PATH.slice(1)
 /** Query parameter naming the Session whose frames one stream carries. */
 export const SESSION_QUERY = 'session'
 
+/** Exact Connection route reading and toggling per-model diffusion for the toggle. */
+export const DIFFUSION_ROUTE_PATH = '/api/mercury-diffusion/diffusion'
+
+/** Document-relative form of {@link DIFFUSION_ROUTE_PATH}. */
+export const DIFFUSION_ROUTE = DIFFUSION_ROUTE_PATH.slice(1)
+
 /** How one diffusing attempt ended. */
 export type DiffusionOutcome = 'completed' | 'aborted' | 'failed'
+
+/**
+ * One provider route this plugin may bridge. Membership is a routing fact
+ * (endpoint and credential), never a model-name guess: whether a model on the
+ * route accepts `diffusing` is measured by the capability probe.
+ */
+export interface BridgeRoute {
+  /** Provider route key whose requests may be bridged. */
+  provider: string
+  /** Endpoint serving `/chat/completions`. */
+  baseURL: string
+  /** Credential reference resolved through `ctx.credentials`. */
+  apiKeyEnv: string
+}
+
+/**
+ * One measured capability result. `detail` names the step that decided it, so a
+ * missing toggle can be explained from the status payload alone.
+ */
+export interface ProbeOutcome {
+  readonly verdict: DiffusionVerdict
+  readonly detail: 'measured' | 'no-route' | 'no-credential'
+}
 
 /**
  * One live diffusion publication for one model attempt. `frame.text` is the
@@ -22,7 +53,7 @@ export type DiffusionWireFrame =
     readonly type: 'frame'
     /** Process-local attempt identity; a new attempt replaces the previous one. */
     readonly attempt: string
-    /** One-based denoising step counted by the adapter, including throttled steps. */
+    /** One-based denoising step counted by the bridge, including throttled steps. */
     readonly step: number
     /** Provider model id serving the attempt. */
     readonly model: string
