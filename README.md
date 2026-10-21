@@ -21,12 +21,12 @@ English · [简体中文](README.zh-CN.md)
 
 ## Highlights
 
-- 🌀 **Real frames, not a fake animation.** Every frame is a denoising state returned by the Mercury API (`diffusing: true`), replayed at a readable pace.
-- 🔌 **Works with the provider route you already have.** The plugin registers no provider and no settings page of its own; it adds a diffusion layer under the route you add on dsh's Models page.
-- 🧪 **Zero-cost capability probe.** Whether a route/model honors `diffusing` is measured with a request that is rejected before any token is generated. No model-name guessing, no billed tokens.
-- 🛟 **Never breaks a conversation.** Attachments, auxiliary calls, unwatched sessions, routes without a credential, or a gateway that rejects the field all fall back to the original adapter untouched.
-- 🧾 **Clean session logs.** Intermediate frames travel on a side channel; only the converged text is written to the log and shown to the model.
-- 🎛️ **One-click toggle per model.** A small floating button appears for capable models; your choice is stored in dsh user settings (plugin config key `diffusion.<provider>::<model>`) and survives restarts.
+- **Real frames, not a fake animation.** Every frame is a denoising state returned by the Mercury API (`diffusing: true`), replayed at a readable pace.
+- **Works with the provider route you already have.** The plugin registers no provider and no settings page of its own; it adds a diffusion layer under the route you add on dsh's Models page.
+- **Zero-cost capability probe.** Whether a route/model honors `diffusing` is measured with a request that is rejected before any token is generated. No model-name guessing, no billed tokens.
+- **Never breaks a conversation.** Attachments, auxiliary calls, unwatched sessions, routes without a credential, or a gateway that rejects the field all fall back to the original adapter untouched.
+- **Clean session logs.** Intermediate frames travel on a side channel; only the converged text is written to the log and shown to the model.
+- **One-click toggle per model.** A small floating button appears for capable models; your choice is stored in dsh user settings (plugin config key `diffusion.<provider>::<model>`) and survives restarts.
 
 ## Quick start
 
