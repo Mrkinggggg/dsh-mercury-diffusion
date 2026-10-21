@@ -38,6 +38,9 @@ const WRONG_TYPE = 'probe-not-a-boolean'
 /** Give up on a probe that says nothing within this window. */
 const PROBE_TIMEOUT_MS = 15_000
 
+/** How long an inconclusive probe is trusted before the next conversation re-asks. */
+const UNKNOWN_TTL_MS = 60_000
+
 /** How much of the error body to inspect. */
 const MAX_BODY = 8_000
 
@@ -72,7 +75,7 @@ export function classifyProbe(status: number, body: string): DiffusionVerdict {
  * Concurrent callers share one in-flight probe so a burst of requests costs one.
  */
 export class DiffusionCapability {
-  private readonly verdicts = new Map<string, DiffusionVerdict>()
+  private readonly verdicts = new Map<string, { verdict: DiffusionVerdict; expiresAt: number }>()
   private readonly inflight = new Map<string, Promise<DiffusionVerdict>>()
 
   private static key(target: { provider: string; model: string }): string {
@@ -86,23 +89,33 @@ export class DiffusionCapability {
    * @returns the last verdict, or undefined when the pair was never probed.
    */
   verdictOf(provider: string, model: string): DiffusionVerdict | undefined {
-    return this.verdicts.get(`${provider}::${model}`)
+    const cached = this.verdicts.get(`${provider}::${model}`)
+    if (cached === undefined) return undefined
+    if (cached.expiresAt > Date.now()) return cached.verdict
+    this.verdicts.delete(`${provider}::${model}`)
+    return undefined
   }
 
   /**
    * The verdict for one target, probing when it is not cached yet.
    * @param target - endpoint, model, and credential.
-   * @returns the settled verdict; `unknown` results are retried next time.
+   * @returns the settled verdict; `unknown` is cached briefly and retried after.
    */
   async verdict(target: ProbeTarget): Promise<DiffusionVerdict> {
     const key = DiffusionCapability.key(target)
-    const cached = this.verdicts.get(key)
-    if (cached === 'yes' || cached === 'no') return cached
+    const cached = this.verdictOf(target.provider, target.model)
+    if (cached !== undefined) return cached
     const running = this.inflight.get(key)
     if (running !== undefined) return await running
     const pending = this.probe(target).then((verdict) => {
-      // An unreachable or evasive endpoint is not a property of the route; retry later.
-      if (verdict !== 'unknown') this.verdicts.set(key, verdict)
+      // A measured property of the route holds for the process. An evasive or
+      // unreachable endpoint may answer differently next time, so it is kept
+      // only long enough to stop every conversation open from re-probing — an
+      // ignored `diffusing` is the common OpenAI-compatible case.
+      this.verdicts.set(key, {
+        verdict,
+        expiresAt: verdict === 'unknown' ? Date.now() + UNKNOWN_TTL_MS : Number.POSITIVE_INFINITY,
+      })
       return verdict
     }).finally(() => { this.inflight.delete(key) })
     this.inflight.set(key, pending)
