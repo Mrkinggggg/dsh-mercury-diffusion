@@ -123,38 +123,143 @@ const CSS = `
   white-space: nowrap;
 }
 
-.${CLASS}-settings {
+/* Expanded question: a compact card with a header, one line, and one toggle. */
+.${CLASS}-hint {
+  position: fixed;
+  top: 20%;
+  right: 16px;
+  z-index: 60;
+  box-sizing: border-box;
+  width: 208px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  max-width: 560px;
+  gap: 10px;
+  border: 1px solid var(--dsw-alias-border-l3, rgba(0,0,0,0.08));
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-base, Canvas);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.06);
+  font-family: inherit;
 }
-.${CLASS}-settings__field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.${CLASS}-settings__label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--dsw-alias-label-primary, CanvasText);
-}
-.${CLASS}-settings__hint,
-.${CLASS}-settings__notice {
-  margin: 0;
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--dsw-alias-label-tertiary, GrayText);
-}
-.${CLASS}-settings__error {
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--dsw-alias-label-error, #e5484d);
-}
-.${CLASS}-settings__actions {
+.${CLASS}-hint__head {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
+}
+.${CLASS}-hint__badge {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex: none;
+  display: block;
+}
+.${CLASS}-hint__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  color: var(--dsw-alias-label-primary, CanvasText);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.${CLASS}-hint__close {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary, GrayText);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.${CLASS}-hint,
+.${CLASS}-hint__launcher {
+  -webkit-app-region: no-drag;
+}
+.${CLASS}-hint__close:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgba(128,128,128,0.12));
+  color: var(--dsw-alias-label-primary, CanvasText);
+}
+.${CLASS}-hint__body {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary, GrayText);
+}
+/* The single control: filled while offering diffusion, outlined while it is on. */
+.${CLASS}-hint__toggle {
+  box-sizing: border-box;
+  width: 100%;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: var(--dsw-alias-button-primary-fill, #2f6bff);
+  color: var(--dsw-alias-label-primary-foreground, #fff);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 26px;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.${CLASS}-hint__toggle:hover:not(:disabled) {
+  background: var(--dsw-alias-button-primary-hover, #255ae0);
+}
+.${CLASS}-hint__toggle[data-on] {
+  background: transparent;
+  border-color: var(--dsw-alias-border-l3, rgba(128,128,128,0.3));
+  color: var(--dsw-alias-label-primary, CanvasText);
+}
+.${CLASS}-hint__toggle[data-on]:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover, rgba(128,128,128,0.12));
+}
+.${CLASS}-hint__toggle:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+/* Collapsed offer: a small round launcher on the conversation's right edge. */
+.${CLASS}-hint__launcher {
+  position: fixed;
+  top: 20%;
+  right: 16px;
+  z-index: 60;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--dsw-alias-border-l3, rgba(128,128,128,0.22));
+  background: var(--dsw-alias-bg-base, Canvas);
+  color: var(--dsw-alias-state-business-primary, #4c8dff);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+.${CLASS}-hint__launcher:hover {
+  transform: scale(1.08);
+  background: var(--dsw-alias-interactive-bg-hover, rgba(128,128,128,0.15));
+}
+/* Diffusion already on: an accent ring, never fading — dimming reads as "off". */
+.${CLASS}-hint__launcher[data-enabled] {
+  border-color: var(--dsw-alias-state-business-primary, #4c8dff);
+  box-shadow: 0 0 0 2px rgba(76, 141, 255, 0.28), 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+.${CLASS}-hint__icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  display: block;
+  pointer-events: none;
 }
 `
 
