@@ -15,7 +15,7 @@ import { discoverBridgeRoutes } from './auto-bridge.ts'
 import { applyBridge } from './bridge.ts'
 import { DiffusionCapability } from './capability.ts'
 import { Config } from './config.ts'
-import { DEFAULT_KEY_ENV, resolveCredential } from './credentials.ts'
+import { resolveCredential } from './credentials.ts'
 import { DiffusionState } from './diffusion-state.ts'
 import { DiffusionHub } from './frames.ts'
 import { applyDiffusionRoute, applyFramesRoute } from './route.ts'
@@ -80,7 +80,8 @@ export function apply(ctx: Context, config: Config): void {
    */
   const defaultSelection = (): { provider: string; model: string } | undefined => {
     try {
-      const section = settingsOf(ctx)?.describe({ redactSecrets: false }).find(entry => entry.ns === 'agent-default-model')
+      // Only provider and model are read here, so redaction does not matter.
+      const section = settingsOf(ctx)?.describe().find(entry => entry.ns === 'agent-default-model')
       const value = section?.value as { provider?: unknown; model?: unknown } | undefined
       if (typeof value?.provider !== 'string' || typeof value.model !== 'string') return undefined
       return { provider: value.provider, model: value.model }
@@ -102,7 +103,7 @@ export function apply(ctx: Context, config: Config): void {
     if (cached !== undefined) return { verdict: cached, detail: 'measured' }
     const route = await routeOf(provider)
     if (route === undefined) return { verdict: 'unknown', detail: 'no-route' }
-    const apiKey = await resolveCredential(ctx, route.apiKeyEnv.length > 0 ? route.apiKeyEnv : DEFAULT_KEY_ENV)
+    const apiKey = await resolveCredential(ctx, route.apiKeyEnv)
     if (apiKey === undefined) return { verdict: 'unknown', detail: 'no-credential' }
     return { verdict: await capability.verdict({ provider, model, baseURL: route.baseURL, apiKey }), detail: 'measured' }
   }

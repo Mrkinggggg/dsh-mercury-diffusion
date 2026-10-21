@@ -11,7 +11,6 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { LlmConfigurableProvider } from '@deepseek-ai/dsh-llm'
-import { DEFAULT_KEY_ENV } from './credentials.ts'
 import { settingsOf } from './settings.ts'
 import type { BridgeRoute } from './shared.ts'
 
@@ -38,20 +37,22 @@ function text(field: unknown): string | undefined {
  * @param provider - provider route key.
  * @param profile - the stored provider profile.
  * @param entry - the directory entry for this route, when the directory lists it.
- * @returns the bridge route.
+ * @returns the bridge route, or undefined when the route names no credential.
  */
 function routeFrom(
   provider: string,
   profile: Record<string, unknown>,
   entry: LlmConfigurableProvider | undefined,
-): BridgeRoute {
+): BridgeRoute | undefined {
   const baseURL = text(profile['baseURL'])
     ?? text(entry?.defaultBaseURL)
     ?? FALLBACK_BASE_URL
-  const apiKeyEnv = text(profile['apiKeyEnv'])
-    ?? text(entry?.baseURLEnv?.[0])
-    ?? text(entry?.nativeAuth?.env[0])
-    ?? DEFAULT_KEY_ENV
+  // `baseURLEnv` names the variables that build an endpoint, not a credential,
+  // so it must never be used here: it would send the endpoint as a Bearer token
+  // and shadow the real key. A route with no credential reference at all is not
+  // a candidate — borrowing another provider's key would send it to this host.
+  const apiKeyEnv = text(profile['apiKeyEnv']) ?? text(entry?.nativeAuth?.env[0])
+  if (apiKeyEnv === undefined) return undefined
   return { provider, baseURL, apiKeyEnv }
 }
 
@@ -67,17 +68,32 @@ export async function discoverBridgeRoutes(ctx: Context): Promise<BridgeRoute[]>
   const directory = (() => {
     try { return ctx.llm.listConfigurableProviders() } catch (_directoryUnavailable) { return [] }
   })()
+  // Unredacted values are read here because a credential *reference* is what
+  // this discovery needs; the secret behind it is never touched.
   const described = (() => {
     try { return settingsOf(ctx)?.describe({ redactSecrets: false }) ?? [] } catch (_settingsUnavailable) { return [] }
   })()
   const routes = new Map<string, BridgeRoute>()
+  const add = (provider: string, profile: Record<string, unknown>, entry: LlmConfigurableProvider | undefined): void => {
+    if (routes.has(provider)) return
+    const route = routeFrom(provider, profile, entry)
+    if (route !== undefined) routes.set(provider, route)
+  }
+  // The directory names the exact settings section and path for each profile.
+  for (const entry of directory) {
+    if (entry.error !== undefined) continue
+    const section = described.find(candidate => candidate.ns === entry.settingsNs)
+    const profile = at(section?.value, entry.settingsPath)
+    if (profile !== undefined) add(entry.provider, profile, entry)
+  }
+  // A profile the directory does not list — just created, or carrying a catalog
+  // diagnostic — is still a configured route and must not be invisible.
   for (const section of described) {
     const providers = at(section.value, ['providers'])
     if (providers === undefined) continue
     for (const provider of Object.keys(providers)) {
       const profile = at(providers, [provider])
-      if (profile === undefined) continue
-      routes.set(provider, routeFrom(provider, profile, directory.find(entry => entry.provider === provider)))
+      if (profile !== undefined) add(provider, profile, directory.find(entry => entry.provider === provider))
     }
   }
   return [...routes.values()]

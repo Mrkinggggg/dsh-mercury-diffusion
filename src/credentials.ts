@@ -4,12 +4,12 @@
  * A route names a credential reference; the value comes from the host's
  * credential plane when one is composed, and from the launch environment
  * otherwise. Both readers live here so the two call sites cannot drift apart.
+ *
+ * There is deliberately no fallback reference: borrowing another provider's key
+ * would send it to whatever host the route names.
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-
-/** Credential reference read when a route names none, matching the bundled gateway. */
-export const DEFAULT_KEY_ENV = 'MAGPIE_GATEWAY_KEY'
 
 /** Credential plane face this plugin needs, when the host composes one. */
 export interface CredentialsService {
