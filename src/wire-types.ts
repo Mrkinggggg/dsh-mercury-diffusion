@@ -1,4 +1,4 @@
-/** Inception `/v1/chat/completions` request fields this adapter writes (https://api.inceptionlabs.ai/openapi.json). */
+/** Inception `/v1/chat/completions` request fields this bridge writes (https://api.inceptionlabs.ai/openapi.json). */
 
 /** One completed function call carried by an assistant history message. */
 export interface WireToolCall {

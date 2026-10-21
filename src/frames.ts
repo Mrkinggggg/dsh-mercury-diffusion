@@ -1,4 +1,4 @@
-/** Process-local fan-out of live diffusion frames from adapter attempts to watching Web Clients. */
+/** Process-local fan-out of live diffusion frames from bridge attempts to watching Web Clients. */
 
 import { randomUUID } from 'node:crypto'
 import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
