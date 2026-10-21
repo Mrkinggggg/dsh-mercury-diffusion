@@ -1,7 +1,7 @@
 {
   "name": "dsh-mercury-diffusion",
   "description": "DeepSeek Harness plugin that renders Inception Mercury's diffusion (denoising) stream live in the Web UI",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": "TonyWu",
   "repository": {
     "type": "git",
