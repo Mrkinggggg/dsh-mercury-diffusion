@@ -1,7 +1,7 @@
 {
   "name": "dsh-mercury-diffusion",
-  "description": "Inception Mercury adapter for DeepSeek Harness that renders the diffusion (denoising) stream live in the Web UI",
-  "version": "0.1.0",
+  "description": "DeepSeek Harness plugin that renders Inception Mercury's diffusion (denoising) stream live in the Web UI",
+  "version": "0.2.1",
   "author": "TonyWu",
   "repository": {
     "type": "git",
@@ -20,6 +20,7 @@
   },
   "files": [
     "lib/index.js",
+    "lib/index.js.map",
     "lib/client.js",
     "cordis.patch.yml",
     "README.md",
@@ -59,7 +60,6 @@
   },
   "dependencies": {
     "@deepseek-ai/dsh-brand": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-timeout": "0.2.1-rc.2",
     "@deepseek-ai/schemastery": "~3.18.5",
     "eventsource-parser": "^3.1.0"
   },
@@ -71,10 +71,8 @@
     "@deepseek-ai/cordis": "~4.0.5",
     "@deepseek-ai/dsh-client-connection": "0.2.1-rc.2",
     "@deepseek-ai/dsh-client-locale": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-client-store": "^0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-chat": "^0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-conversation": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-plugin-manager": "^0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-primitives": "^0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-session": "0.2.1-rc.2",

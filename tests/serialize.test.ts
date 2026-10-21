@@ -2,14 +2,11 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { LlmError, ReasoningEffortId, ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
-import type { MercuryModel } from '../src/config.ts'
 import { serialize } from '../src/serialize.ts'
-
-const MODEL: MercuryModel = { id: 'mercury-3', name: 'Mercury 3', contextWindow: 1_000_000, maxTokens: 131_072, reasoningEfforts: ['instant', 'low', 'medium', 'high'] }
 
 /** Loop-built histories carry durable fields the serializer never reads; request inputs cover the cases. */
 function request(messages: unknown[], extra: Partial<GenerateOptions> = {}): GenerateOptions {
-  return { provider: 'mercury', model: 'mercury-3', messages: messages as GenerateOptions['messages'], ...extra }
+  return { provider: 'inception', model: 'mercury-3', messages: messages as GenerateOptions['messages'], ...extra }
 }
 
 describe('serialize', () => {
@@ -23,7 +20,7 @@ describe('serialize', () => {
         { type: 'tool-call', id: ToolCallId('call_1'), name: 'bash', arguments: '{"command":"ls"}' },
       ] },
       { role: 'tool', toolCallId: ToolCallId('call_1'), content: [{ type: 'text', text: 'a.md' }] },
-    ]), MODEL, { diffusing: false })
+    ]), { diffusing: false })
     assert.deepEqual(body.messages, [
       { role: 'system', content: 'Be brief.' },
       { role: 'user', content: 'List files' },
@@ -38,7 +35,7 @@ describe('serialize', () => {
     const body = serialize(request([{ role: 'user', content: [{ type: 'text', text: 'hi' }] }], {
       system: 'sys', maxTokens: 512, temperature: 0.7, stop: ['END'], reasoningEffort: ReasoningEffortId('high'),
       tools: [{ name: 'bash', description: 'Run a command', parameters: { type: 'object' } }],
-    }), MODEL, { diffusing: true })
+    }), { diffusing: true })
     assert.equal(body.diffusing, true)
     assert.equal(body.messages[0]?.role, 'system')
     assert.equal(body.max_completion_tokens, 512)
@@ -50,11 +47,9 @@ describe('serialize', () => {
 
   it('rejects values Mercury cannot honor', () => {
     const user = [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }]
-    assert.throws(() => serialize(request(user, { temperature: 0.2 }), MODEL, { diffusing: false }),
+    assert.throws(() => serialize(request(user, { temperature: 0.2 }), { diffusing: false }),
       (error: unknown) => error instanceof LlmError && error.code === 'UNSUPPORTED_OPTION')
-    assert.throws(() => serialize(request(user, { reasoningEffort: ReasoningEffortId('max') }), MODEL, { diffusing: false }),
-      (error: unknown) => error instanceof LlmError && error.code === 'UNSUPPORTED_REASONING_EFFORT')
-    assert.throws(() => serialize(request([{ role: 'user', content: [{ type: 'image', attachment: {} }] }]), MODEL, { diffusing: false }),
+    assert.throws(() => serialize(request([{ role: 'user', content: [{ type: 'image', attachment: {} }] }]), { diffusing: false }),
       (error: unknown) => error instanceof LlmError && error.code === 'UNSUPPORTED_CONTENT')
   })
 })

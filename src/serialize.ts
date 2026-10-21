@@ -2,7 +2,6 @@
 
 import { LlmError } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, GenerateOptions, RequestMessage } from '@deepseek-ai/dsh-llm'
-import type { MercuryModel } from './config.ts'
 import type { WireMessage, WireRequest, WireToolCall } from './wire-types.ts'
 
 /** Sampling range accepted by Mercury chat models. */
@@ -89,7 +88,7 @@ function assertNever(value: never): never {
   throw new Error(`unexpected message role ${JSON.stringify(value)}`)
 }
 
-/** Per-request transport choices resolved by the adapter. */
+/** Per-request transport choices resolved by the bridge. */
 export interface SerializeOptions {
   /** Ask for complete-text denoising frames instead of deltas. */
   readonly diffusing: boolean
@@ -98,12 +97,11 @@ export interface SerializeOptions {
 /**
  * Serialize one complete streaming request.
  * @param options - provider-neutral request after runtime projection.
- * @param model - configured model row for `options.model`, when listed.
  * @param transport - diffusion choice for this request.
  * @returns the chat-completions JSON body.
- * @throws {LlmError} `UNSUPPORTED_CONTENT`, `UNSUPPORTED_OPTION`, or `UNSUPPORTED_REASONING_EFFORT` for values Mercury cannot honor.
+ * @throws {LlmError} `UNSUPPORTED_CONTENT` or `UNSUPPORTED_OPTION` for values Mercury cannot honor.
  */
-export function serialize(options: GenerateOptions, model: MercuryModel | undefined, transport: SerializeOptions): WireRequest {
+export function serialize(options: GenerateOptions, transport: SerializeOptions): WireRequest {
   const messages: WireMessage[] = []
   if (options.system !== undefined && options.system.length > 0) messages.push({ role: 'system', content: options.system })
   for (const message of options.messages) {
@@ -117,9 +115,6 @@ export function serialize(options: GenerateOptions, model: MercuryModel | undefi
     )
   }
   const effort = options.reasoningEffort === undefined ? undefined : String(options.reasoningEffort)
-  if (effort !== undefined && model !== undefined && !model.reasoningEfforts.includes(effort)) {
-    throw new LlmError(`Mercury model "${options.model}" does not accept reasoning effort "${effort}"`, 'UNSUPPORTED_REASONING_EFFORT')
-  }
   return {
     model: options.model,
     messages,
