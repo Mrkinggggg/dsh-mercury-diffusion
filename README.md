@@ -6,7 +6,7 @@
 
 A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (dsh) plugin that streams the real denoising frames of [Inception Mercury](https://docs.inceptionlabs.ai) and plays them in the answer bubble, from noise to finished text.
 
-[![npm](https://img.shields.io/npm/v/dsh-mercury-diffusion?color=cb3837&logo=npm)](https://www.npmjs.com/package/dsh-mercury-diffusion)
+[![npm](https://badgen.net/npm/v/dsh-mercury-diffusion?color=cb3837&icon=npm)](https://www.npmjs.com/package/dsh-mercury-diffusion)
 [![license](https://img.shields.io/github/license/TonyWu2333/dsh-mercury-diffusion)](LICENSE)
 [![dsh](https://img.shields.io/badge/dsh-%3E%3D0.2.1--rc.2%20%3C0.3.0-4d6bfe)](https://github.com/deepseek-ai/deepseek-harness)
 [![node](https://img.shields.io/badge/node-%5E22.19%20%7C%7C%20%3E%3D24-339933?logo=node.js&logoColor=white)](package.json)
