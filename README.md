@@ -19,6 +19,14 @@ English · [简体中文](README.zh-CN.md)
 
 ---
 
+## Promo video
+
+<div align="center">
+
+<a href="https://www.youtube.com/watch?v=B68LdMf5Pjo"><img src="assets/promo-cover.jpg" alt="dsh-mercury-diffusion promo video on YouTube" width="640"></a>
+
+</div>
+
 ## Highlights
 
 - **Real frames, not a fake animation.** Every frame is a denoising state returned by the Mercury API (`diffusing: true`), replayed at a readable pace.

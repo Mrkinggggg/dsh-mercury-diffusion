@@ -19,6 +19,14 @@
 
 ---
 
+## 宣传视频
+
+<div align="center">
+
+<a href="https://www.youtube.com/watch?v=B68LdMf5Pjo"><img src="assets/promo-cover.jpg" alt="dsh-mercury-diffusion 宣传视频（YouTube）" width="640"></a>
+
+</div>
+
 ## 亮点
 
 - **真实帧，不是假动画。** 每一帧都是 Mercury API（`diffusing: true`）返回的去噪状态，按可读的节奏回放。
