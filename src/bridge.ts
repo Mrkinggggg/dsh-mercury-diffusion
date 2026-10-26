@@ -128,6 +128,20 @@ async function* bridge(
 }
 
 /**
+ * Failures that mean this bridge cannot produce or read a response the route
+ * accepts: content it cannot serialize, a body the route rejects, or a stream
+ * it cannot parse. Every other provider failure belongs to the runtime's retry
+ * policy; falling back would re-send the request without `diffusing`, discard
+ * the provider's `retry-after`, and turn one refused attempt into two.
+ */
+const BRIDGE_FALLBACK_CODES: ReadonlySet<string> = new Set([
+  'INVALID_REQUEST',
+  'MALFORMED_RESPONSE',
+  'UNSUPPORTED_CONTENT',
+  'UNSUPPORTED_OPTION',
+])
+
+/**
  * Run the bridge, and hand the request back to its owning adapter whenever the
  * bridge turns out not to apply, or refuses the request before any frame
  * arrives — a route that cannot be diffused must not break conversations.
@@ -175,6 +189,10 @@ function guarded(
         // An abort is the caller's decision, not a route refusal: rethrow rather
         // than quietly starting a second request on an aborted signal.
         if (started || aborted()) throw error
+        // A provider failure is not a refusal of the diffusion field: let the
+        // runtime's retry policy handle it instead of re-sending without
+        // `diffusing` and discarding the provider's `retry-after`.
+        if (error instanceof LlmError && !BRIDGE_FALLBACK_CODES.has(error.code)) throw error
         yield* next()
       } finally {
         void iterator.return?.(undefined).catch((_abandonedDrain: unknown) => {})

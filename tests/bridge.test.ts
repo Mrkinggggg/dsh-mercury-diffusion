@@ -82,18 +82,30 @@ function diffusedStream(): Response {
 
 describe('bridge interceptor', () => {
   it('falls back to the owning adapter when no credential resolves', async () => {
+    let calls = 0
+    globalThis.fetch = async () => { calls += 1; return new Response('', { status: 500 }) }
+    const hub = new DiffusionHub(() => {})
+    hub.attach('s1', () => {})
     const { ctx, handler } = harness(undefined)
-    applyBridge(ctx, () => [ROUTE], () => {}, new DiffusionHub(() => {}), new DiffusionState({ 'gw::mercury-3': true }), new DiffusionCapability(), 0, 1_000)
+    applyBridge(ctx, () => [ROUTE], () => {}, hub, new DiffusionState({ 'gw::mercury-3': true }), new DiffusionCapability(), 0, 1_000)
     const chunks = await collect(handler()(request(), adapterStream))
     assert.deepEqual(chunks, [{ type: 'text-delta', index: 0, text: 'from-adapter' }])
+    assert.equal(calls, 0, 'an unresolved credential is decided before any probe')
   })
 
-  it('falls back when the upstream refuses the field', async () => {
-    globalThis.fetch = async () => new Response('{"error":{"message":[{"type":"extra_forbidden"}]}}', { status: 400 })
+  it('falls back when the probe cannot confirm the field', async () => {
+    let calls = 0
+    globalThis.fetch = async () => {
+      calls += 1
+      return new Response('{"error":{"message":[{"type":"extra_forbidden"}]}}', { status: 400 })
+    }
+    const hub = new DiffusionHub(() => {})
+    hub.attach('s1', () => {})
     const { ctx, handler } = harness('sk-test')
-    applyBridge(ctx, () => [ROUTE], () => {}, new DiffusionHub(() => {}), new DiffusionState({ 'gw::mercury-3': true }), new DiffusionCapability(), 0, 1_000)
+    applyBridge(ctx, () => [ROUTE], () => {}, hub, new DiffusionState({ 'gw::mercury-3': true }), new DiffusionCapability(), 0, 1_000)
     const chunks = await collect(handler()(request(), adapterStream))
     assert.deepEqual(chunks, [{ type: 'text-delta', index: 0, text: 'from-adapter' }])
+    assert.equal(calls, 1, 'an inconclusive probe is not repeated by the adapter path')
   })
 
   it('bridges the request and publishes frames once the probe passes', async () => {
@@ -113,6 +125,46 @@ describe('bridge interceptor', () => {
     assert.deepEqual(frames, ['hel', 'hello'])
   })
 
+  it('rethrows a retryable provider failure instead of re-sending without diffusion', async () => {
+    let calls = 0
+    globalThis.fetch = async () => {
+      calls += 1
+      if (calls === 1) return new Response(KNOWS_FIELD, { status: 400 })
+      return new Response('{"error":{"message":"Rate limit reached","type":"rate_limit_error"}}', {
+        status: 429,
+        headers: { 'retry-after': '1' },
+      })
+    }
+    const hub = new DiffusionHub(() => {})
+    hub.attach('s1', () => {})
+    const { ctx, handler } = harness('sk-test')
+    applyBridge(ctx, () => [ROUTE], () => {}, hub, new DiffusionState({ 'gw::mercury-3': true }), new DiffusionCapability(), 0, 1_000)
+    await assert.rejects(
+      collect(handler()(request(), adapterStream)),
+      (error: unknown) => error instanceof LlmError
+        && error.code === 'RATE_LIMIT'
+        && error.failure.providerRetryAfterMs === 1_000,
+    )
+    assert.equal(calls, 2)
+  })
+
+  it('still falls back when the bridge request itself is refused', async () => {
+    let calls = 0
+    globalThis.fetch = async () => {
+      calls += 1
+      return calls === 1
+        ? new Response(KNOWS_FIELD, { status: 400 })
+        : new Response('{"detail":[{"type":"extra_forbidden","loc":["body","diffusing"]}]}', { status: 422 })
+    }
+    const hub = new DiffusionHub(() => {})
+    hub.attach('s1', () => {})
+    const { ctx, handler } = harness('sk-test')
+    applyBridge(ctx, () => [ROUTE], () => {}, hub, new DiffusionState({ 'gw::mercury-3': true }), new DiffusionCapability(), 0, 1_000)
+    const chunks = await collect(handler()(request(), adapterStream))
+    assert.deepEqual(chunks, [{ type: 'text-delta', index: 0, text: 'from-adapter' }])
+    assert.equal(calls, 2)
+  })
+
   it('rethrows an abort instead of starting a second request', async () => {
     const controller = new AbortController()
     controller.abort()
@@ -129,8 +181,10 @@ describe('bridge interceptor', () => {
   it('leaves turns with attachments to the owning adapter', async () => {
     let probed = false
     globalThis.fetch = async () => { probed = true; return new Response(KNOWS_FIELD, { status: 400 }) }
+    const hub = new DiffusionHub(() => {})
+    hub.attach('s1', () => {})
     const { ctx, handler } = harness('sk-test')
-    applyBridge(ctx, () => [ROUTE], () => {}, new DiffusionHub(() => {}), new DiffusionState({ 'gw::mercury-3': true }), new DiffusionCapability(), 0, 1_000)
+    applyBridge(ctx, () => [ROUTE], () => {}, hub, new DiffusionState({ 'gw::mercury-3': true }), new DiffusionCapability(), 0, 1_000)
     const options = request({ messages: [{ role: 'user', content: [{ type: 'image', attachment: {} }] }] })
     const chunks = await collect(handler()(options, adapterStream))
     assert.equal(probed, false)
