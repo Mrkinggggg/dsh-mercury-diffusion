@@ -14,7 +14,7 @@ import type { LlmConfigurableProvider } from '@deepseek-ai/dsh-llm'
 import { settingsOf } from './settings.ts'
 import type { BridgeRoute } from './shared.ts'
 
-/** Endpoint assumed for a route that names none; the bundled gateway listens here. */
+/** Endpoint assumed for a route that names none and has no environment-built endpoint; the bundled gateway listens here. */
 const FALLBACK_BASE_URL = 'http://127.0.0.1:3425/v1'
 
 /** Read one nested member of a settings value, or undefined when any hop is absent. */
@@ -44,9 +44,13 @@ function routeFrom(
   profile: Record<string, unknown>,
   entry: LlmConfigurableProvider | undefined,
 ): BridgeRoute | undefined {
-  const baseURL = text(profile['baseURL'])
-    ?? text(entry?.defaultBaseURL)
-    ?? FALLBACK_BASE_URL
+  const named = text(profile['baseURL']) ?? text(entry?.defaultBaseURL)
+  // `baseURLEnv` means the adapter builds this route's endpoint from the
+  // environment, so the plugin cannot know it. Falling back would probe (and
+  // later bridge to) a host the route never named, carrying this route's
+  // credential — the same mistake the credential check below prevents.
+  if (named === undefined && entry?.baseURLEnv !== undefined && entry.baseURLEnv.length > 0) return undefined
+  const baseURL = named ?? FALLBACK_BASE_URL
   // `baseURLEnv` names the variables that build an endpoint, not a credential,
   // so it must never be used here: it would send the endpoint as a Bearer token
   // and shadow the real key. A route with no credential reference at all is not
